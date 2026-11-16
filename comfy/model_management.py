@@ -1919,7 +1919,11 @@ def get_free_memory(dev=None, torch_free_too=False):
             stats = torchvulkan.memory_stats(dev)
             mem_active = stats['active_bytes.all.current']
             mem_reserved = stats['reserved_bytes.all.current']
-            mem_free_vk = torchvulkan.get_device_properties(dev).total_memory - mem_reserved
+            # torchvulkan's free memory is what is left of the driver's VRAM budget, which accounts
+            # for other programs (the desktop, browsers) and is where torchvulkan starts placing
+            # allocations in host memory. total_memory - reserved overestimated it by over a GB, so
+            # ComfyUI kept models loaded that did not fit and every step ran partly over PCIe.
+            mem_free_vk, _ = torchvulkan.mem_get_info(dev)
             mem_free_torch = mem_reserved - mem_active
             mem_free_total = mem_free_vk + mem_free_torch
         elif is_intel_xpu():
