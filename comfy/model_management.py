@@ -499,8 +499,8 @@ try:
     if is_intel_xpu() or is_ascend_npu() or is_mlu() or is_ixuca():
         if args.use_split_cross_attention == False and args.use_quad_cross_attention == False:
             ENABLE_PYTORCH_ATTENTION = True
-    if is_vulkan():
-        ENABLE_PYTORCH_ATTENTION = False # For now, until fused attention is implemented. Otherwise, VRAM consumption is too high
+    if is_vulkan() and not args.use_pytorch_cross_attention:
+        ENABLE_PYTORCH_ATTENTION = False # Off unless asked for: torchvulkan releases without a fused SDPA use too much VRAM
 except:
     pass
 
@@ -1883,7 +1883,7 @@ def pytorch_attention_flash_attention():
         if is_ixuca():
             return True
         if is_vulkan():
-            return False # TODO: check if flash attention implemented yet
+            return bool(args.use_pytorch_cross_attention) # opted in, so assume a torchvulkan with fused SDPA
     return False
 
 def force_upcast_attention_dtype():
