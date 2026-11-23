@@ -81,6 +81,11 @@ try:
                     SDPA_CONTIGUOUS_KV_L2_SIZE = props.L2_cache_size
 
             def scaled_dot_product_attention(q, k, v, *args, **kwargs):
+                # The priority list below names only CUDA's backends and MATH, so on another device (a Vulkan tensor in
+                # a CUDA build of torch) it disables the OVERRIDEABLE backend that device's fused kernel runs under, and
+                # attention falls back to MATH: the full score matrix (12.6 GB and 5x slower for Flux 2 Klein at 1024²).
+                if q.device.type != "cuda":
+                    return torch.nn.functional.scaled_dot_product_attention(q, k, v, *args, **kwargs)
                 if q.nelement() < 1024 * 128:  # arbitrary number, for small inputs cudnn attention seems slower
                     return torch.nn.functional.scaled_dot_product_attention(q, k, v, *args, **kwargs)
                 attn_mask = args[0] if len(args) > 0 else kwargs.get("attn_mask")
